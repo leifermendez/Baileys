@@ -186,12 +186,55 @@ export const decryptMessageNode = (
 								break
 							case 'pkmsg':
 							case 'msg':
-								const user = isJidUser(sender) ? sender : author
-								msgBuffer = await repository.decryptMessage({
-									jid: user,
-									type: e2eType,
-									ciphertext: content
-								})
+								// Manejo robusto de JID para desencriptación
+								let user = isJidUser(sender) ? sender : author
+								let recoveryAttempted = false
+
+								// Si hay información LID, usar el JID correcto para crypto
+								if (stanza.attrs.original_from && isLidUser(stanza.attrs.original_from)) {
+									user = stanza.attrs.original_from
+									logger.debug({ cryptoJid: user, routingJid: sender }, 'using original LID for decryption')
+								}
+
+								try {
+									msgBuffer = await repository.decryptMessage({
+										jid: user,
+										type: e2eType,
+										ciphertext: content
+									})
+								} catch (decryptError: any) {
+									// Recovery automático en caso de Bad MAC
+									if (decryptError.message?.includes('Bad MAC') && !recoveryAttempted) {
+										recoveryAttempted = true
+										logger.warn({ originalUser: user, error: decryptError.message }, 'attempting decryption recovery')
+
+										// Intentar con JID alternativo si es LID
+										if (isLidUser(user) && stanza.attrs.sender_pn) {
+											const alternativeUser = stanza.attrs.sender_pn
+											logger.info({ lidJid: user, fallbackJid: alternativeUser }, 'trying PN fallback for LID')
+
+											try {
+												msgBuffer = await repository.decryptMessage({
+													jid: alternativeUser,
+													type: e2eType,
+													ciphertext: content
+												})
+												logger.info({ recoveredWith: alternativeUser }, 'decryption recovered using PN')
+											} catch (fallbackError: any) {
+												logger.error({
+													lidJid: user,
+													fallbackJid: alternativeUser,
+													error: fallbackError.message
+												}, 'both LID and PN decryption failed')
+												throw decryptError // Re-throw original error
+											}
+										} else {
+											throw decryptError
+										}
+									} else {
+										throw decryptError
+									}
+								}
 								break
 							case 'plaintext':
 								msgBuffer = content

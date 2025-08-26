@@ -36,6 +36,7 @@
     "prepare": "npm run build",
     "preinstall": "node ./engine-requirements.js",
     "release": "release-it",
+    "release:publi": "npm run build && release-it --npm.publish=true --npm.private=false",
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest"
   },
   "dependencies": {

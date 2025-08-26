@@ -766,17 +766,17 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 			return
 		}
 
-		// -------- INICIO PARCHE PARA LID --------
+		// -------- INICIO MANEJO ROBUSTO DE LID --------
+		// Preservar información original para procesamiento diferenciado
 		if (node.attrs.from && node.attrs.from.includes('lid')) {
-			console.log('ES LID')
+			logger.debug({ lidJid: node.attrs.from, senderPn: node.attrs.sender_pn }, 'processing LID message')
 			node.attrs.sender_lid = node.attrs.from
-			node.attrs.from = node.attrs.sender_pn || node.attrs.from
+			node.attrs.original_from = node.attrs.from  // Preservar para crypto
+			node.attrs.sender_pn = node.attrs.sender_pn || node.attrs.from
 		} else if (node.attrs.from) {
-			console.log('NO LID')
 			node.attrs.sender_pn = node.attrs.from
 		}
-		console.log('node', node)
-		// -------- FIN PARCHE PARA LID --------
+		// -------- FIN MANEJO ROBUSTO DE LID --------
 
 		const encNode = getBinaryNodeChild(node, 'enc')
 
