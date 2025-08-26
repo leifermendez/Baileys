@@ -8,6 +8,7 @@ import type { SenderKeyStore } from './Group/group_cipher'
 import { SenderKeyName } from './Group/sender-key-name'
 import { SenderKeyRecord } from './Group/sender-key-record'
 import { GroupCipher, GroupSessionBuilder, SenderKeyDistributionMessage } from './Group'
+import { SessionLoopGuard } from '../Utils/session-loop-guard'
 
 export function makeLibSignalRepository(auth: SignalAuthState): SignalRepository {
 	const storage: SenderKeyStore = signalStorage(auth)

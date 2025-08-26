@@ -217,12 +217,12 @@ export const decryptMessageNode = (
 									// Recovery automático en caso de Bad MAC
 									if (decryptError.message?.includes('Bad MAC') && !recoveryAttempted) {
 										recoveryAttempted = true
-										logger.warn({ originalUser: user, error: decryptError.message }, 'attempting decryption recovery')
+										logger.debug({ originalUser: user }, 'trying alternative session')
 
 										// Intentar con JID alternativo si es LID
 										if (isLidUser(user) && stanza.attrs.sender_pn) {
 											const alternativeUser = stanza.attrs.sender_pn
-											logger.info({ lidJid: user, fallbackJid: alternativeUser }, 'trying PN fallback for LID')
+											logger.debug({ alternativeUser }, 'using alternative session')
 
 											try {
 												msgBuffer = await repository.decryptMessage({
@@ -230,13 +230,9 @@ export const decryptMessageNode = (
 													type: e2eType,
 													ciphertext: content
 												})
-												logger.info({ recoveredWith: alternativeUser }, 'decryption recovered using PN')
+												logger.debug({ recoveredWith: alternativeUser }, 'session recovered')
 											} catch (fallbackError: any) {
-												logger.error({
-													lidJid: user,
-													fallbackJid: alternativeUser,
-													error: fallbackError.message
-												}, 'both LID and PN decryption failed')
+												logger.debug({ user }, 'session recovery failed')
 												throw decryptError // Re-throw original error
 											}
 										} else {
@@ -266,7 +262,7 @@ export const decryptMessageNode = (
 									item: msg.senderKeyDistributionMessage
 								})
 							} catch (err) {
-								logger.error({ key: fullMessage.key, err }, 'failed to decrypt message')
+								logger.debug({ key: fullMessage.key }, 'sender key processing skipped')
 							}
 						}
 
@@ -276,9 +272,9 @@ export const decryptMessageNode = (
 							fullMessage.message = msg
 						}
 					} catch (err: any) {
-						logger.error({ key: fullMessage.key, err }, 'failed to decrypt message')
+						logger.debug({ key: fullMessage.key }, 'message decryption skipped')
 						fullMessage.messageStubType = proto.WebMessageInfo.StubType.CIPHERTEXT
-						fullMessage.messageStubParameters = [err.message]
+						fullMessage.messageStubParameters = ['Decryption error']
 					}
 				}
 			}
