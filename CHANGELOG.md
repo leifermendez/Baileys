@@ -1,3 +1,7 @@
+## [6.7.21](https://github.com/WhiskeySockets/Baileys/compare/v6.7.20...v6.7.21) (2025-08-26)
+
+
+
 ## [6.7.20](https://github.com/WhiskeySockets/Baileys/compare/v6.7.18...v6.7.20) (2025-08-26)
 
 
