@@ -1,3 +1,12 @@
+## [6.7.22](https://github.com/WhiskeySockets/Baileys/compare/v6.7.21...v6.7.22) (2025-08-26)
+
+
+### Bug Fixes
+
+* lid ([4c2f4ea](https://github.com/WhiskeySockets/Baileys/commit/4c2f4eaac40fb24684dd821e265af0cff82f37da))
+
+
+
 ## [6.7.21](https://github.com/WhiskeySockets/Baileys/compare/v6.7.20...v6.7.21) (2025-08-26)
 
 
