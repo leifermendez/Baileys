@@ -1,3 +1,13 @@
+## [6.7.24](https://github.com/WhiskeySockets/Baileys/compare/v6.7.22...v6.7.24) (2025-08-26)
+
+
+### Features
+
+* enhance console and stream logging filters ([cd2d677](https://github.com/WhiskeySockets/Baileys/commit/cd2d677264224a2e24069ac56e557dd39844724d))
+* enhance socket and message handling ([1d5d932](https://github.com/WhiskeySockets/Baileys/commit/1d5d932e8157be247835fdcf1262f8355783cfa0))
+
+
+
 ## [6.7.22](https://github.com/WhiskeySockets/Baileys/compare/v6.7.21...v6.7.22) (2025-08-26)
 
 
