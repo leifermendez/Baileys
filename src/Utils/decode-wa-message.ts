@@ -10,8 +10,10 @@ import {
 	isJidNewsletter,
 	isJidStatusBroadcast,
 	isJidUser,
-	isLidUser
+	isLidUser,
+	jidNormalizedUser
 } from '../WABinary'
+import { normalizeMessageJids } from './jid-normalization'
 import { unpadRandomMax16 } from './generics'
 import type { ILogger } from './logger'
 
@@ -68,7 +70,19 @@ export function decodeMessageNode(stanza: BinaryNode, meId: string, meLid: strin
 
 			chatId = recipient
 		} else {
-			chatId = from!
+			// Fast path: optimización para usuarios LID comunes
+			if (from!.includes('@lid')) {
+				// Conversión rápida LID -> PN para chat unificado
+				const senderPn = stanza.attrs.sender_pn
+				if (senderPn && isJidUser(senderPn)) {
+					chatId = jidNormalizedUser(senderPn)
+				} else {
+					chatId = jidNormalizedUser(from!.replace('@lid', '@s.whatsapp.net'))
+				}
+			} else {
+				// Usuario normal - path estándar
+				chatId = from!
+			}
 		}
 
 		msgType = 'chat'
@@ -190,10 +204,18 @@ export const decryptMessageNode = (
 								let user = isJidUser(sender) ? sender : author
 								let recoveryAttempted = false
 
-								// Si hay información LID, usar el JID correcto para crypto
+								// Fast path: crypto JID optimizado para LID
 								if (stanza.attrs.original_from && isLidUser(stanza.attrs.original_from)) {
-									user = stanza.attrs.original_from
-									logger.debug({ cryptoJid: user, routingJid: sender }, 'using original LID for decryption')
+									// Para crypto, usar siempre el JID LID original
+									user = jidNormalizedUser(stanza.attrs.original_from)
+
+									// Solo log en debug para performance
+									if (logger.level === 'debug') {
+										logger.debug({
+											cryptoJid: user,
+											originalFrom: stanza.attrs.original_from
+										}, 'using LID for crypto (optimized)')
+									}
 								}
 
 								try {
