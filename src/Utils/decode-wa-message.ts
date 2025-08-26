@@ -70,19 +70,9 @@ export function decodeMessageNode(stanza: BinaryNode, meId: string, meLid: strin
 
 			chatId = recipient
 		} else {
-			// Fast path: optimización para usuarios LID comunes
-			if (from!.includes('@lid')) {
-				// Conversión rápida LID -> PN para chat unificado
-				const senderPn = stanza.attrs.sender_pn
-				if (senderPn && isJidUser(senderPn)) {
-					chatId = jidNormalizedUser(senderPn)
-				} else {
-					chatId = jidNormalizedUser(from!.replace('@lid', '@s.whatsapp.net'))
-				}
-			} else {
-				// Usuario normal - path estándar
-				chatId = from!
-			}
+			// Revertir a normalización robusta para evitar chats duplicados
+			const normalized = normalizeMessageJids(from!, participant, stanza.attrs.sender_pn)
+			chatId = normalized.chatId
 		}
 
 		msgType = 'chat'
@@ -204,17 +194,16 @@ export const decryptMessageNode = (
 								let user = isJidUser(sender) ? sender : author
 								let recoveryAttempted = false
 
-								// Fast path: crypto JID optimizado para LID
+								// Usar normalización robusta para crypto JID (evita inconsistencias)
 								if (stanza.attrs.original_from && isLidUser(stanza.attrs.original_from)) {
-									// Para crypto, usar siempre el JID LID original
-									user = jidNormalizedUser(stanza.attrs.original_from)
-
-									// Solo log en debug para performance
+									const normalized = normalizeMessageJids(
+										stanza.attrs.original_from,
+										author,
+										stanza.attrs.sender_pn
+									)
+									user = normalized.cryptoJid
 									if (logger.level === 'debug') {
-										logger.debug({
-											cryptoJid: user,
-											originalFrom: stanza.attrs.original_from
-										}, 'using LID for crypto (optimized)')
+										logger.debug({ cryptoJid: user, chatId: normalized.chatId }, 'using normalized LID JIDs')
 									}
 								}
 
