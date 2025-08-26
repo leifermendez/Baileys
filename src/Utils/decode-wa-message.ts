@@ -214,30 +214,56 @@ export const decryptMessageNode = (
 										ciphertext: content
 									})
 								} catch (decryptError: any) {
-									// Recovery automático en caso de Bad MAC
+									// Recovery automático mejorado
 									if (decryptError.message?.includes('Bad MAC') && !recoveryAttempted) {
 										recoveryAttempted = true
-										logger.debug({ originalUser: user }, 'trying alternative session')
+										logger.debug({ originalUser: user, error: decryptError.message }, 'attempting decryption recovery')
 
-										// Intentar con JID alternativo si es LID
-										if (isLidUser(user) && stanza.attrs.sender_pn) {
-											const alternativeUser = stanza.attrs.sender_pn
-											logger.debug({ alternativeUser }, 'using alternative session')
+										// Para usuarios LID, intentar múltiples estrategias
+										if (stanza.attrs.original_from && isLidUser(stanza.attrs.original_from)) {
+											const lidJid = stanza.attrs.original_from
+											const phoneJid = stanza.attrs.sender_pn
 
-											try {
-												msgBuffer = await repository.decryptMessage({
-													jid: alternativeUser,
-													type: e2eType,
-													ciphertext: content
-												})
-												logger.debug({ recoveredWith: alternativeUser }, 'session recovered')
-											} catch (fallbackError: any) {
-												logger.debug({ user }, 'session recovery failed')
-												throw decryptError // Re-throw original error
+											// Estrategia 1: Si estábamos usando normalizado, intentar con original
+											if (user !== lidJid) {
+												try {
+													logger.debug({ trying: lidJid }, 'trying original LID JID')
+													msgBuffer = await repository.decryptMessage({
+														jid: lidJid,
+														type: e2eType,
+														ciphertext: content
+													})
+													logger.debug({ recoveredWith: lidJid }, 'recovered with original LID')
+													break // Salir del switch
+												} catch (lidError: any) {
+													logger.debug({ lidJid, error: lidError.message }, 'original LID failed')
+												}
 											}
-										} else {
-											throw decryptError
+
+											// Estrategia 2: Intentar con phone number si está disponible
+											if (phoneJid && phoneJid !== user) {
+												try {
+													logger.debug({ trying: phoneJid }, 'trying phone number fallback')
+													msgBuffer = await repository.decryptMessage({
+														jid: phoneJid,
+														type: e2eType,
+														ciphertext: content
+													})
+													logger.debug({ recoveredWith: phoneJid }, 'recovered with phone number')
+													break // Salir del switch
+												} catch (phoneError: any) {
+													logger.debug({ phoneJid, error: phoneError.message }, 'phone number fallback failed')
+												}
+											}
 										}
+
+										// Si llegamos aquí, todos los intentos fallaron
+										logger.warn({
+											user,
+											originalFrom: stanza.attrs.original_from,
+											senderPn: stanza.attrs.sender_pn
+										}, 'all decryption recovery attempts failed')
+										throw decryptError
 									} else {
 										throw decryptError
 									}
@@ -272,7 +298,20 @@ export const decryptMessageNode = (
 							fullMessage.message = msg
 						}
 					} catch (err: any) {
-						logger.debug({ key: fullMessage.key }, 'message decryption skipped')
+						// Logging mejorado para diagnosticar mensajes undefined
+						const isLidMessage = stanza.attrs.original_from && stanza.attrs.original_from.includes('@lid')
+
+						if (isLidMessage) {
+							logger.warn({
+								key: fullMessage.key,
+								originalFrom: stanza.attrs.original_from,
+								senderPn: stanza.attrs.sender_pn,
+								error: err.message
+							}, 'LID message decryption failed - will appear as undefined')
+						} else {
+							logger.debug({ key: fullMessage.key }, 'message decryption skipped')
+						}
+
 						fullMessage.messageStubType = proto.WebMessageInfo.StubType.CIPHERTEXT
 						fullMessage.messageStubParameters = ['Decryption error']
 					}
